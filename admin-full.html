@@ -338,6 +338,7 @@
       <button class="tab-btn" onclick="switchTab('excel1',this)">📊 Excel – فرز الطلبات</button>
       <button class="tab-btn" onclick="switchTab('excel2',this)">📊 Excel – التقييم النهائي</button>
       <button class="tab-btn" onclick="switchTab('travel',this)">🧳 قائمة متابعة المبتعثين</button>
+      <button class="tab-btn" onclick="switchTab('users',this)">🧑‍💼 إدارة المستخدمين</button>
     </div>
 
     <!-- TAB 1 -->
@@ -644,6 +645,61 @@
       </div>
     </div>
 
+    <!-- TAB 7 — إدارة المستخدمين -->
+    <div class="tab-content" id="tab-users">
+      <div class="alert alert-info" style="margin-bottom:16px;">🧑‍💼 إدارة حسابات المشرفين — يمكنك تعديل الاسم الظاهر
+        وتغيير كلمات المرور. هذا التبويب متاح فقط للمشرف العام.</div>
+
+      <div class="card">
+        <div class="card-header">👥 الحسابات الحالية</div>
+        <div class="card-body" style="padding:0;">
+          <div class="table-wrap">
+            <table class="data-table" style="font-size:13px;">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>اسم المستخدم</th>
+                  <th>الاسم الظاهر</th>
+                  <th>الدور</th>
+                  <th style="min-width:150px;">إجراءات</th>
+                </tr>
+              </thead>
+              <tbody id="usersTbody">
+                <tr>
+                  <td colspan="5" style="text-align:center;padding:30px;color:var(--neutral-400);">جارٍ التحميل...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Change-password modal -->
+  <div id="passwordModal" class="modal-overlay" style="display:none;">
+    <div class="modal-box" style="max-width:420px;">
+      <div class="modal-header">🔑 تغيير كلمة المرور
+        <button class="modal-close" onclick="$('#passwordModal').hide()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div id="passwordModalAlert"></div>
+        <p style="font-size:13px;color:var(--neutral-500);margin-bottom:10px;">
+          الحساب: <b id="passwordModalUsername"></b>
+        </p>
+        <label style="font-size:13px;font-weight:700;display:block;margin-bottom:6px;color:var(--primary);">🔽 اكتب كلمة المرور الجديدة هنا</label>
+        <div style="position:relative;">
+          <input type="password" id="passwordModalInput" class="tbl-input" style="width:100%;border:2px solid var(--primary);background:#fff8e1;font-size:15px;padding:10px 40px 10px 12px;" placeholder="6 أحرف على الأقل">
+          <button type="button" id="togglePasswordVisibility" onclick="togglePasswordModalVisibility()"
+            style="position:absolute;top:50%;left:8px;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:17px;padding:4px;">👁️</button>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-neutral" onclick="$('#passwordModal').hide()">إلغاء</button>
+        <button class="btn btn-primary" id="savePasswordBtn" onclick="savePassword()">💾 حفظ</button>
+      </div>
+    </div>
   </div>
 
   <div id="deleteModal" class="modal-overlay" style="display:none;">
@@ -696,6 +752,7 @@
       if (name === 'excel1') loadExcel1Preview();
       if (name === 'excel2') loadExcel2Preview();
       if (name === 'travel') loadTravel();
+      if (name === 'users') loadUsers();
     }
 
     function attachmentsHtml(r) {
@@ -1658,6 +1715,107 @@
       ws.views = [{ rightToLeft: true, showGridLines: false }];
       downloadWorkbook(wb, 'قائمة_متابعة_المبتعثين.xlsx');
       toast('✅ تم تحميل ملف متابعة المبتعثين بنجاح');
+    }
+
+    // ══ TAB 7 — إدارة المستخدمين ══
+    const ROLE_LABELS = {
+      nursing_dir: 'مدير التمريض – المديرية',
+      nursing_hosp: 'مدير التمريض – المستشفى',
+      other_dir: 'مدير الدوائر الأخرى – المديرية',
+      other_hosp: 'مدير الدوائر الأخرى – المستشفى',
+      full: 'المشرف العام',
+    };
+
+    let usersCache = [];
+
+    async function loadUsers() {
+      const { data, error } = await _supabase.from('admin_users').select('id, username, role, display_name').order('id', { ascending: true });
+      if (error) { toast('خطأ: ' + error.message, 'danger'); return; }
+      usersCache = data;
+      if (!data.length) {
+        $('#usersTbody').html('<tr><td colspan="5" style="text-align:center;padding:30px;color:var(--neutral-400);">لا توجد حسابات.</td></tr>');
+        return;
+      }
+      let html = '';
+      data.forEach((u, i) => {
+        html += `<tr>
+        <td>${i + 1}</td>
+        <td style="font-weight:700;">${u.username}</td>
+        <td id="dispCell_${u.id}">
+          <span id="dispView_${u.id}">${u.display_name || '—'}</span>
+          <button class="btn btn-neutral btn-sm" style="margin-right:6px;" onclick="editDisplayName(${u.id})">✏️ تعديل</button>
+        </td>
+        <td><span class="badge badge-new">${ROLE_LABELS[u.role] || u.role}</span></td>
+        <td style="text-align:center;">
+          <button class="btn btn-info btn-sm" onclick="openPasswordModal(${u.id}, '${(u.username || '').replace(/'/g, "\\'")}')">🔑 كلمة المرور</button>
+        </td>
+      </tr>`;
+      });
+      $('#usersTbody').html(html);
+    }
+
+    function editDisplayName(id) {
+      const user = usersCache.find(u => Number(u.id) === Number(id));
+      const current = (user && user.display_name) || '';
+      $(`#dispCell_${id}`).html(`
+        <input type="text" id="dispInput_${id}" class="tbl-input" value="${current.replace(/"/g, '&quot;')}" style="width:160px;">
+        <button class="btn btn-primary btn-sm" style="margin-right:6px;" onclick="saveDisplayName(${id})">💾 حفظ</button>
+      `);
+      document.getElementById(`dispInput_${id}`).focus();
+    }
+
+    async function saveDisplayName(id) {
+      const newName = $(`#dispInput_${id}`).val().trim();
+      const { error } = await _supabase.from('admin_users').update({ display_name: newName }).eq('id', id);
+      if (error) { toast('خطأ: ' + error.message, 'danger'); return; }
+      toast('✅ تم تحديث الاسم الظاهر');
+      loadUsers();
+    }
+
+    let passwordModalUserId = null;
+
+    function openPasswordModal(id, username) {
+      passwordModalUserId = id;
+      $('#passwordModalUsername').text(username);
+      $('#passwordModalInput').val('').attr('type', 'password');
+      $('#togglePasswordVisibility').text('👁️');
+      $('#passwordModalAlert').html('');
+      $('#passwordModal').show();
+    }
+
+    function togglePasswordModalVisibility() {
+      const input = document.getElementById('passwordModalInput');
+      const btn = document.getElementById('togglePasswordVisibility');
+      if (input.type === 'password') {
+        input.type = 'text';
+        btn.textContent = '🙈';
+      } else {
+        input.type = 'password';
+        btn.textContent = '👁️';
+      }
+    }
+
+    async function savePassword() {
+      const password = $('#passwordModalInput').val();
+      $('#passwordModalAlert').html('');
+
+      if (password.length < 6) {
+        $('#passwordModalAlert').html('<div class="alert alert-danger">⚠️ كلمة المرور يجب أن تكون 6 أحرف على الأقل.</div>');
+        return;
+      }
+
+      const btn = $('#savePasswordBtn');
+      btn.html('<span class="spinner"></span>').prop('disabled', true);
+
+      const { error } = await _supabase.from('admin_users').update({ password }).eq('id', passwordModalUserId);
+
+      if (error) {
+        $('#passwordModalAlert').html(`<div class="alert alert-danger">❌ ${error.message}</div>`);
+      } else {
+        toast('✅ تم تغيير كلمة المرور بنجاح');
+        $('#passwordModal').hide();
+      }
+      btn.html('💾 حفظ').prop('disabled', false);
     }
 
     // ── Init ──
