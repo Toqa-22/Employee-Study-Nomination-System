@@ -1,0 +1,703 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>استمارة ترشيح موظف للدراسة</title>
+  <link rel="stylesheet" href="layout.css">
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    .checkbox-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 14px 0;
+      border-top: 1px solid var(--n200);
+      margin-top: 6px;
+    }
+
+    .checkbox-row input[type=checkbox] {
+      width: 18px;
+      height: 18px;
+      min-width: 18px;
+      cursor: pointer;
+      accent-color: var(--primary);
+      margin-top: 2px;
+    }
+
+    .checkbox-row label {
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      line-height: 1.5;
+    }
+
+    .required-star {
+      color: var(--danger);
+      margin-right: 2px;
+    }
+
+    .success-banner {
+      text-align: center;
+      padding: 40px 20px;
+      background: var(--white);
+      border-radius: var(--r-lg);
+      box-shadow: var(--sh-md);
+      margin: 0 auto;
+      max-width: 520px;
+    }
+
+    .success-banner .icon {
+      font-size: 54px;
+      margin-bottom: 14px;
+    }
+
+    .success-banner h3 {
+      font-size: 21px;
+      color: var(--success);
+      margin-bottom: 8px;
+    }
+
+    .success-banner p {
+      color: var(--n500);
+      margin-bottom: 20px;
+      font-size: 15px;
+    }
+
+    /* Form container max width */
+    #formContainer .view-container,
+    #formContainer>.view-container {
+      max-width: 860px;
+      margin: 0 auto;
+    }
+
+    @media (max-width: 479px) {
+      .success-banner {
+        padding: 28px 14px;
+      }
+
+      .success-banner .icon {
+        font-size: 44px;
+      }
+
+      .success-banner h3 {
+        font-size: 17px;
+      }
+    }
+
+    /* Admin portal button — always right side of nav, never wraps */
+    .nav-link-admin-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      background: rgba(255, 255, 255, 0.18);
+      border: 1.5px solid rgba(255, 255, 255, 0.5);
+      border-radius: 20px;
+      padding: 6px 14px;
+      color: #fff;
+      font-weight: 700;
+      font-size: 13.5px;
+      text-decoration: none;
+      white-space: nowrap;
+      flex-shrink: 0;
+      transition: background 0.15s;
+      font-family: var(--font);
+    }
+
+    .nav-link-admin-btn:hover {
+      background: rgba(255, 255, 255, 0.3);
+      color: #fff;
+    }
+
+    @media (max-width: 479px) {
+      .nav-link-admin-btn {
+        padding: 6px 12px;
+        font-size: 13px;
+      }
+    }
+
+    /* ── File Upload Box ── */
+    .upload-box {
+      border: 2px dashed var(--n300);
+      border-radius: var(--r-md);
+      padding: 18px 12px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color .2s, background .2s;
+      background: var(--n50);
+      min-height: 110px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      position: relative;
+    }
+
+    .upload-box:hover {
+      border-color: var(--primary);
+      background: #eef4fb;
+    }
+
+    .upload-box.has-file {
+      border-color: var(--success);
+      background: #f0fdf4;
+      border-style: solid;
+    }
+
+    .upload-icon {
+      font-size: 28px;
+    }
+
+    .upload-hint {
+      font-size: 12.5px;
+      color: var(--n500);
+    }
+
+    .upload-name {
+      font-size: 12px;
+      color: var(--success);
+      font-weight: 700;
+      word-break: break-all;
+    }
+
+    .upload-preview {
+      max-width: 100%;
+      max-height: 80px;
+      border-radius: 4px;
+      margin-top: 6px;
+      display: none;
+      object-fit: cover;
+      border: 1px solid var(--n200);
+    }
+
+    .upload-remove {
+      position: absolute;
+      top: 6px;
+      left: 6px;
+      background: var(--danger);
+      color: #fff;
+      border: none;
+      border-radius: 50%;
+      width: 22px;
+      height: 22px;
+      font-size: 12px;
+      cursor: pointer;
+      display: none;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .upload-box.has-file .upload-remove {
+      display: flex;
+    }
+  </style>
+</head>
+
+<body>
+
+  <nav class="top-nav">
+    <div class="brand">
+      <span class="brand-icon">🎓</span>
+      <span class="brand-text">نظام ترشيح الدراسات العليا والبعثات</span>
+    </div>
+    <div class="nav-links">
+      <a href="login.html" class="nav-link-admin-btn">🔐 بوابة الإدارة</a>
+    </div>
+  </nav>
+
+  <div class="page-wrapper">
+
+    <!-- Success Banner (hidden until submit) -->
+    <div id="successBanner" style="display:none;" class="success-banner">
+      <div class="icon">✅</div>
+      <h3>تم تقديم طلب الترشيح بنجاح!</h3>
+      <p>تم حفظ طلبك في النظام وسيتم مراجعته من قِبَل الإدارة المختصة.</p>
+      <button class="btn btn-primary" onclick="showForm()">📝 تقديم طلب جديد</button>
+    </div>
+
+    <!-- Nomination Form -->
+    <div id="formContainer">
+      <div class="page-title">📋 استمارة ترشيح موظف للدراسة</div>
+
+      <form id="nominationForm" novalidate>
+
+        <!-- Section 1: Personal & Job Info -->
+        <fieldset>
+          <legend>أولاً : البيانات الشخصية والوظيفية</legend>
+          <div class="form-grid">
+            <div class="form-group">
+              <label>الاسم الكامل <span class="required-star">*</span></label>
+              <input type="text" id="full_name" required placeholder="الاسم الرباعي كاملاً">
+            </div>
+            <div class="form-group">
+              <label>الرقم الوظيفي <span class="required-star">*</span></label>
+              <input type="text" id="job_number" required placeholder="مثال: 12345">
+            </div>
+            <div class="form-group">
+              <label>المسمى الوظيفي <span class="required-star">*</span></label>
+              <input type="text" id="job_title" required>
+            </div>
+            <div class="form-group">
+              <label>تاريخ التعيين <span class="required-star">*</span></label>
+              <input type="date" id="hiring_date" required>
+            </div>
+            <div class="form-group">
+              <label>جهة العمل – المديرية / المستشفى <span class="required-star">*</span></label>
+              <select id="work_directorate" required>
+                <option value="">— اختر —</option>
+                <option value="المديرية">المديرية</option>
+                <option value="المستشفى">المستشفى</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>جهة العمل – الدائرة <span class="required-star">*</span></label>
+              <select id="work_department" required onchange="toggleOtherDept(this)">
+                <option value="">— اختر الدائرة —</option>
+                <option value="تمريض">تمريض</option>
+                <option value="أخرى">أخرى — اكتب اسمها</option>
+              </select>
+            </div>
+            <div class="form-group" id="dept_other_group" style="display:none;">
+              <label>اسم الدائرة (أخرى) <span class="required-star">*</span></label>
+              <input type="text" id="work_department_other" placeholder="اكتب اسم الدائرة هنا...">
+            </div>
+            <div class="form-group">
+              <label>درجة الأداء الوظيفي لآخر سنة <span class="required-star">*</span></label>
+              <input type="text" id="performance_rating" required placeholder="تقييم إجادة">
+            </div>
+            <div class="form-group">
+              <label>الدرجة المالية <span class="required-star">*</span></label>
+              <input type="text" id="financial_degree" required>
+            </div>
+            <div class="form-group">
+              <label>الرقم المدني <span class="required-star">*</span></label>
+              <input type="text" id="civil_id" required placeholder="مثال: 12345678">
+            </div>
+            <div class="form-group">
+              <label>رقم الجواز <span class="required-star">*</span></label>
+              <input type="text" id="passport_number" required>
+            </div>
+            <div class="form-group">
+              <label>تاريخ الميلاد <span class="required-star">*</span></label>
+              <input type="date" id="birth_date" required>
+            </div>
+            <div class="form-group">
+              <label>الحالة الاجتماعية <span class="required-star">*</span></label>
+              <select id="marital_status" required>
+                <option value="">— اختر —</option>
+                <option>أعزب/عزباء</option>
+                <option>متزوج/متزوجة</option>
+                <option>مطلق/مطلقة</option>
+                <option>أرمل/أرملة</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>العنوان – المحافظة <span class="required-star">*</span></label>
+              <input type="text" id="permanent_address_governorate" required placeholder="مثال: شمال الشرقية">
+            </div>
+            <div class="form-group">
+              <label>الولاية / المنطقة <span class="required-star">*</span></label>
+              <input type="text" id="address_willayat" required>
+            </div>
+            <div class="form-group">
+              <label>البريد الإلكتروني <span class="required-star">*</span></label>
+              <input type="email" id="email" required placeholder="example@moh.gov.om">
+            </div>
+            <div class="form-group">
+              <label>رقم الهاتف النقال <span class="required-star">*</span></label>
+              <input type="tel" id="mobile_number" required placeholder="مثال: 99123456">
+            </div>
+            <div class="form-group">
+              <label>الخبرة في مجال التخصص (تاريخ الالتحاق بالتخصص) <span class="required-star">*</span></label>
+              <input type="date" id="specialty_experience_date" required>
+            </div>
+          </div>
+        </fieldset>
+
+        <!-- Section 2: Previous Study -->
+        <fieldset>
+          <legend>ثانياً : بيانات الدراسة السابقة</legend>
+          <div class="form-grid">
+            <div class="form-group">
+              <label>آخر مؤهل حاصل عليه <span class="required-star">*</span></label>
+              <input type="text" id="last_qualification" required>
+            </div>
+            <div class="form-group">
+              <label>سنة الحصول عليه <span class="required-star">*</span></label>
+              <input type="text" id="qualification_year" required placeholder="مثال: 2018">
+            </div>
+            <div class="form-group">
+              <label>بلد الدراسة السابقة <span class="required-star">*</span></label>
+              <input type="text" id="study_country_prev" required>
+            </div>
+            <div class="form-group">
+              <label>التخصص <span class="required-star">*</span></label>
+              <input type="text" id="specialization_prev" required>
+            </div>
+            <div class="form-group">
+              <label>الجهة الممولة <span class="required-star">*</span></label>
+              <input type="text" id="funding_entity_prev" required>
+            </div>
+            <div class="form-group">
+              <label>جهة الدراسة <span class="required-star">*</span></label>
+              <input type="text" id="study_entity_prev" required>
+            </div>
+          </div>
+        </fieldset>
+
+        <!-- Section 3: Required Study -->
+        <fieldset>
+          <legend>ثالثاً : بيانات الدراسة المطلوبة</legend>
+          <div class="form-grid">
+            <div class="form-group">
+              <label>المؤهل المطلوب <span class="required-star">*</span></label>
+              <input type="text" id="qualification_req" required placeholder="مثال: دبلوم دراسات عليا / بكالوريوس">
+            </div>
+            <div class="form-group">
+              <label>التخصص العام <span class="required-star">*</span></label>
+              <input type="text" id="general_specialization" required>
+            </div>
+            <div class="form-group">
+              <label>التخصص الفرعي <span class="required-star">*</span></label>
+              <input type="text" id="sub_specialization" required>
+            </div>
+            <div class="form-group">
+              <label>بلد الدراسة <span class="required-star">*</span></label>
+              <input type="text" id="study_country_req" required>
+            </div>
+            <div class="form-group">
+              <label>جهة الدراسة (الجامعة) <span class="required-star">*</span></label>
+              <input type="text" id="study_entity_req" required>
+            </div>
+            <div class="form-group">
+              <label>نظام الدراسة <span class="required-star">*</span></label>
+              <input type="text" id="study_system" required placeholder="مثال: حضوري / عن بُعد">
+            </div>
+            <div class="form-group">
+              <label>تاريخ البدء <span class="required-star">*</span></label>
+              <input type="date" id="start_date" required>
+            </div>
+            <div class="form-group">
+              <label>تاريخ الانتهاء <span class="required-star">*</span></label>
+              <input type="date" id="end_date" required>
+            </div>
+            <div class="form-group">
+              <label>الجهة الممولة <span class="required-star">*</span></label>
+              <input type="text" id="funding_entity_req" required>
+            </div>
+            <div class="form-group">
+              <label>نوع القبول <span class="required-star">*</span></label>
+              <input type="text" id="admission_type" required placeholder="يوجد / لا يوجد">
+            </div>
+          </div>
+        </fieldset>
+
+        <!-- Section 4: Current Tasks -->
+        <fieldset>
+          <legend>رابعاً : المهام والأعمال التي يقوم بها المرشح حالياً</legend>
+          <div class="form-group">
+            <label>تفاصيل المهام والمسؤوليات الوظيفية الحالية <span class="required-star">*</span></label>
+            <textarea id="tasks_performed" rows="5" required
+              placeholder="اكتب هنا المهام الوظيفية الحالية بالتفصيل..."></textarea>
+          </div>
+        </fieldset>
+
+        <!-- Section 5: Post-Study Plan -->
+        <fieldset>
+          <legend>خامساً : الخطة الموضوعة للمرشح بعد العودة من الدراسة</legend>
+          <div class="form-group">
+            <label>تفاصيل الخطة التطويرية والاستفادة من المؤهل بعد العودة <span class="required-star">*</span></label>
+            <textarea id="plan_after_return" rows="5" required
+              placeholder="اكتب هنا الخطة المستقبلية بعد التخرج..."></textarea>
+          </div>
+        </fieldset>
+
+        <!-- Section 6: Attachments -->
+        <fieldset>
+          <legend>سادساً : المرفقات الإلزامية</legend>
+          <div class="form-grid">
+
+            <div class="form-group">
+              <label>صورة من البطاقة الشخصية <span class="required-star">*</span></label>
+              <div class="upload-box" id="box_id_card" onclick="document.getElementById('file_id_card').click()">
+                <div class="upload-icon">🪪</div>
+                <div class="upload-hint">اضغط لرفع الصورة (JPG, PNG, PDF)</div>
+                <div class="upload-name" id="name_id_card"></div>
+                <img class="upload-preview" id="prev_id_card" src="" alt="">
+              </div>
+              <input type="file" id="file_id_card" accept="image/*,application/pdf" style="display:none"
+                onchange="handleFile(this,'id_card')">
+            </div>
+
+            <div class="form-group">
+              <label>صورة من الإيلتس / شهادة اللغة <span class="required-star">*</span></label>
+              <div class="upload-box" id="box_ielts" onclick="document.getElementById('file_ielts').click()">
+                <div class="upload-icon">📄</div>
+                <div class="upload-hint">اضغط لرفع الصورة (JPG, PNG, PDF)</div>
+                <div class="upload-name" id="name_ielts"></div>
+                <img class="upload-preview" id="prev_ielts" src="" alt="">
+              </div>
+              <input type="file" id="file_ielts" accept="image/*,application/pdf" style="display:none"
+                onchange="handleFile(this,'ielts')">
+            </div>
+
+            <div class="form-group">
+              <label>صورة من قبول الجامعة <span class="required-star">*</span></label>
+              <div class="upload-box" id="box_admission" onclick="document.getElementById('file_admission').click()">
+                <div class="upload-icon">🎓</div>
+                <div class="upload-hint">اضغط لرفع الصورة (JPG, PNG, PDF)</div>
+                <div class="upload-name" id="name_admission"></div>
+                <img class="upload-preview" id="prev_admission" src="" alt="">
+              </div>
+              <input type="file" id="file_admission" accept="image/*,application/pdf" style="display:none"
+                onchange="handleFile(this,'admission')">
+            </div>
+
+
+            <div class="form-group">
+              <label>رسالة توصية الرئيس المباشر <span class="required-star">*</span></label>
+              <div class="upload-box" id="box_recommendation"
+                onclick="document.getElementById('file_recommendation').click()">
+                <div class="upload-icon">📋</div>
+                <div class="upload-hint">اضغط لرفع الملف (JPG, PNG, PDF)</div>
+                <div class="upload-name" id="name_recommendation"></div>
+                <img class="upload-preview" id="prev_recommendation" src="" alt="">
+              </div>
+              <input type="file" id="file_recommendation" accept="image/*,application/pdf" style="display:none"
+                onchange="handleFile(this,'recommendation')">
+            </div>
+
+            <div class="form-group">
+              <label>رسالة تعهد <span class="required-star">*</span></label>
+              <div class="upload-box" id="box_pledge_letter"
+                onclick="document.getElementById('file_pledge_letter').click()">
+                <div class="upload-icon">📝</div>
+                <div class="upload-hint">اضغط لرفع الملف (JPG, PNG, PDF)</div>
+                <div class="upload-name" id="name_pledge_letter"></div>
+                <img class="upload-preview" id="prev_pledge_letter" src="" alt="">
+              </div>
+              <input type="file" id="file_pledge_letter" accept="image/*,application/pdf" style="display:none"
+                onchange="handleFile(this,'pledge_letter')">
+            </div>
+
+          </div>
+        </fieldset>
+
+        <div class="checkbox-row">
+          <input type="checkbox" id="declaration" required>
+          <label for="declaration">أقر بأن جميع البيانات أعلاه صحيحة ودقيقة وتحت مسؤوليتي الكاملة.</label>
+        </div>
+
+        <div id="formAlert"></div>
+
+        <div class="form-actions">
+          <button type="submit" class="btn btn-success btn-lg" id="submitBtn">
+            ✅ إرسال الطلب
+          </button>
+          <button type="reset" class="btn btn-neutral btn-lg">🔄 إعادة تعيين</button>
+        </div>
+
+      </form>
+    </div><!-- /formContainer -->
+  </div><!-- /page-wrapper -->
+
+  <div id="toast-container"></div>
+
+  <script src="config.js"></script>
+  <script>
+    // ── Upload state ─────────────────────────────────────────
+    const uploadedFiles = { id_card: null, ielts: null, admission: null, recommendation: null, pledge_letter: null };
+
+    function handleFile(input, key) {
+      const file = input.files[0];
+      if (!file) return;
+      const maxMB = 5;
+      if (file.size > maxMB * 1024 * 1024) {
+        alert(`حجم الملف كبير جداً — الحد الأقصى ${maxMB} MB`);
+        input.value = '';
+        return;
+      }
+      uploadedFiles[key] = file;
+      const box = document.getElementById('box_' + key);
+      const name = document.getElementById('name_' + key);
+      const prev = document.getElementById('prev_' + key);
+      box.classList.add('has-file');
+      name.textContent = file.name;
+
+      if (file.type.startsWith('image/')) {
+        const reader = new FileReader();
+        reader.onload = e => { prev.src = e.target.result; prev.style.display = 'block'; };
+        reader.readAsDataURL(file);
+      } else {
+        prev.style.display = 'none';
+        document.getElementById('box_' + key).querySelector('.upload-icon').textContent = '📄';
+      }
+    }
+
+    function removeFile(key) {
+      uploadedFiles[key] = null;
+      document.getElementById('file_' + key).value = '';
+      const box = document.getElementById('box_' + key);
+      const name = document.getElementById('name_' + key);
+      const prev = document.getElementById('prev_' + key);
+      box.classList.remove('has-file');
+      name.textContent = '';
+      prev.src = ''; prev.style.display = 'none';
+    }
+
+    async function uploadToSupabase(file, folder) {
+      const ext = file.name.split('.').pop();
+      const path = `${folder}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+      const { data, error } = await _supabase.storage
+        .from('attachments')
+        .upload(path, file, { cacheControl: '3600', upsert: false });
+      if (error) throw error;
+      const { data: urlData } = _supabase.storage.from('attachments').getPublicUrl(path);
+      return urlData.publicUrl;
+    }
+
+    function toggleOtherDept(sel) {
+      const grp = document.getElementById('dept_other_group');
+      const inp = document.getElementById('work_department_other');
+      if (sel.value === 'أخرى') {
+        grp.style.display = 'block';
+        inp.required = true;
+      } else {
+        grp.style.display = 'none';
+        inp.required = false;
+        inp.value = '';
+      }
+    }
+
+    function showForm() {
+      $('#successBanner').hide();
+      $('#formContainer').show();
+      $('#nominationForm')[0].reset();
+      removeFile('id_card'); removeFile('ielts'); removeFile('admission'); removeFile('recommendation'); removeFile('pledge_letter');
+    }
+
+    function showToast(msg, type = 'success') {
+      const t = $(`<div class="toast toast-${type}">${msg}</div>`);
+      $('#toast-container').append(t);
+      setTimeout(() => t.fadeOut(400, () => t.remove()), 3500);
+    }
+
+    $('#nominationForm').on('submit', async function (e) {
+      e.preventDefault();
+      $('#formAlert').html('');
+
+      // Validate text fields
+      let valid = true;
+      $(this).find('input[required],select[required],textarea[required]').each(function () {
+        if (!$(this).val()) { $(this).css('border-color', 'var(--danger)'); valid = false; }
+        else $(this).css('border-color', '');
+      });
+
+      if (!$('#declaration').prop('checked')) {
+        $('#formAlert').html('<div class="alert alert-danger">⚠️ يرجى الموافقة على إقرار صحة البيانات.</div>');
+        return;
+      }
+      if (!valid) {
+        $('#formAlert').html('<div class="alert alert-danger">⚠️ يرجى تعبئة جميع الحقول الإلزامية.</div>');
+        return;
+      }
+
+      // Validate attachments
+      const missing = [];
+      if (!uploadedFiles.id_card) missing.push('صورة البطاقة الشخصية');
+      if (!uploadedFiles.ielts) missing.push('صورة الإيلتس / شهادة اللغة');
+      if (!uploadedFiles.admission) missing.push('صورة قبول الجامعة');
+      if (!uploadedFiles.recommendation) missing.push('رسالة توصية الرئيس المباشر');
+      if (!uploadedFiles.pledge_letter) missing.push('رسالة تعهد');
+      if (missing.length) {
+        $('#formAlert').html(`<div class="alert alert-danger">⚠️ يرجى إرفاق: ${missing.join(' — ')}</div>`);
+        if (!uploadedFiles.id_card) document.getElementById('box_id_card').style.borderColor = 'var(--danger)';
+        if (!uploadedFiles.ielts) document.getElementById('box_ielts').style.borderColor = 'var(--danger)';
+        if (!uploadedFiles.admission) document.getElementById('box_admission').style.borderColor = 'var(--danger)';
+        if (!uploadedFiles.recommendation) document.getElementById('box_recommendation').style.borderColor = 'var(--danger)';
+        if (!uploadedFiles.pledge_letter) document.getElementById('box_pledge_letter').style.borderColor = 'var(--danger)';
+        return;
+      }
+
+      const btn = $('#submitBtn');
+      btn.html('<span class="spinner"></span> جارٍ رفع الملفات...').prop('disabled', true);
+
+      try {
+        // Upload files to Supabase Storage
+        const civil = $('#civil_id').val().trim() || 'unknown';
+        const [urlIdCard, urlIelts, urlAdmission, urlRecommendation, urlPledgeLetter] = await Promise.all([
+          uploadToSupabase(uploadedFiles.id_card, `id_cards/${civil}`),
+          uploadToSupabase(uploadedFiles.ielts, `ielts/${civil}`),
+          uploadToSupabase(uploadedFiles.admission, `admissions/${civil}`),
+          uploadToSupabase(uploadedFiles.recommendation, `recommendations/${civil}`),
+          uploadToSupabase(uploadedFiles.pledge_letter, `pledge_letters/${civil}`)
+        ]);
+
+        btn.html('<span class="spinner"></span> جارٍ الحفظ...');
+
+        const formData = {
+          full_name: $('#full_name').val().trim(),
+          job_number: $('#job_number').val().trim(),
+          job_title: $('#job_title').val().trim(),
+          hiring_date: $('#hiring_date').val(),
+          work_directorate: $('#work_directorate').val(),
+          work_department: $('#work_department').val() === 'أخرى'
+            ? ($('#work_department_other').val().trim() || 'أخرى')
+            : $('#work_department').val().trim(),
+          performance_rating: $('#performance_rating').val().trim(),
+          financial_degree: $('#financial_degree').val().trim(),
+          civil_id: civil,
+          passport_number: $('#passport_number').val().trim(),
+          birth_date: $('#birth_date').val(),
+          marital_status: $('#marital_status').val(),
+          permanent_address_governorate: $('#permanent_address_governorate').val().trim(),
+          address_willayat: $('#address_willayat').val().trim(),
+          email: $('#email').val().trim(),
+          mobile_number: $('#mobile_number').val().trim(),
+          specialty_experience_date: $('#specialty_experience_date').val(),
+          last_qualification: $('#last_qualification').val().trim(),
+          qualification_year: $('#qualification_year').val().trim(),
+          study_country_prev: $('#study_country_prev').val().trim(),
+          specialization_prev: $('#specialization_prev').val().trim(),
+          funding_entity_prev: $('#funding_entity_prev').val().trim(),
+          study_entity_prev: $('#study_entity_prev').val().trim(),
+          qualification_req: $('#qualification_req').val().trim(),
+          general_specialization: $('#general_specialization').val().trim(),
+          sub_specialization: $('#sub_specialization').val().trim(),
+          study_country_req: $('#study_country_req').val().trim(),
+          study_entity_req: $('#study_entity_req').val().trim(),
+          study_system: $('#study_system').val().trim(),
+          start_date: $('#start_date').val(),
+          end_date: $('#end_date').val(),
+          funding_entity_req: $('#funding_entity_req').val().trim(),
+          admission_type: $('#admission_type').val().trim(),
+          tasks_performed: $('#tasks_performed').val().trim(),
+          plan_after_return: $('#plan_after_return').val().trim(),
+          attach_id_card: urlIdCard,
+          attach_ielts: urlIelts,
+          attach_admission: urlAdmission,
+          attach_recommendation: urlRecommendation,
+          attach_pledge_letter: urlPledgeLetter,
+          status: 'pending'
+        };
+
+        const { error } = await _supabase.from('study_nominations').insert([formData]);
+        if (error) throw error;
+
+        $('#formContainer').hide();
+        $('#successBanner').show();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+
+      } catch (err) {
+        $('#formAlert').html(`<div class="alert alert-danger">❌ خطأ: ${err.message}</div>`);
+      } finally {
+        btn.html('✅ إرسال الطلب').prop('disabled', false);
+      }
+    });
+  </script>
+</body>
+
+</html>

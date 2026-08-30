@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>تمريض – المديرية – طلبات الترشيح</title>
+  <link rel="stylesheet" href="layout.css">
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    /* Attachment grid */
+    .attach-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-top: 8px;
+    }
+
+    @media (max-width: 600px) {
+      .attach-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .attach-item {
+      border: 1px solid var(--n200);
+      border-radius: var(--r-md);
+      padding: 10px;
+      text-align: center;
+      background: var(--n50);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .attach-missing {
+      opacity: .5;
+    }
+
+    .attach-label {
+      font-size: 12.5px;
+      font-weight: 700;
+      color: var(--n700);
+    }
+
+    .attach-thumb {
+      width: 100%;
+      max-height: 120px;
+      object-fit: cover;
+      border-radius: var(--r-sm);
+      border: 1px solid var(--n200);
+      cursor: pointer;
+      margin-top: 6px;
+    }
+
+    .filter-label {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--n700);
+      white-space: nowrap;
+    }
+
+    /* ── Responsive detail modal ── */
+    .detail-tbl {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 4px;
+    }
+
+    .dt-l {
+      background: #f0f5fb;
+      font-weight: 700;
+      padding: 6px 10px;
+      border: 1px solid var(--n200);
+      font-size: 13px;
+      width: 35%;
+      word-break: break-word;
+      vertical-align: top;
+    }
+
+    .dt-v {
+      padding: 6px 10px;
+      border: 1px solid var(--n200);
+      font-size: 13px;
+      width: 65%;
+      word-break: break-word;
+      vertical-align: top;
+    }
+
+    @media (max-width:640px) {
+      .dt-pair {
+        display: block;
+      }
+
+      .dt-pair .dt-l,
+      .dt-pair .dt-v {
+        display: block;
+        width: 100% !important;
+        border-bottom: none;
+      }
+
+      .dt-pair .dt-v {
+        border-bottom: 1px solid var(--n200);
+      }
+
+      #detailOverlay .modal-box {
+        border-radius: 0;
+        max-height: 100vh;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <nav class="top-nav">
+    <div class="brand"><span class="brand-icon">🏥</span> <span class="brand-text">تمريض – المديرية</span></div>
+    <div class="nav-links">
+      <a href="index.html" class="nav-link">استمارة الموظف</a>
+      <span class="nav-link" style="cursor:default;opacity:.7;" id="adminNameDisplay"></span>
+      <a href="login.html" class="nav-link" onclick="logout()">خروج</a>
+    </div>
+  </nav>
+
+  <div class="page-wrapper">
+    <div class="page-title">🏥 طلبات ترشيح — تمريض (المديرية)</div>
+
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-icon">📥</div>
+        <div class="stat-label">الإجمالي</div>
+        <div class="stat-value" id="statTotal">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon">⏳</div>
+        <div class="stat-label">قيد المراجعة</div>
+        <div class="stat-value" id="statPending">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon">✅</div>
+        <div class="stat-label">مقبولة</div>
+        <div class="stat-value" id="statAccepted">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon">❌</div>
+        <div class="stat-label">مرفوضة</div>
+        <div class="stat-value" id="statRejected">—</div>
+      </div>
+    </div>
+
+    <div class="filter-bar">
+      <span class="filter-label">الحالة:</span>
+      <select id="filterStatus" onchange="loadRequests()">
+        <option value="">الكل</option>
+        <option value="pending">⏳ قيد المراجعة</option>
+        <option value="accepted">✅ مقبولة</option>
+        <option value="rejected">❌ مرفوضة</option>
+      </select>
+      <input type="text" id="searchInput" placeholder="بحث باسم أو رقم مدني..." oninput="loadRequests()">
+    </div>
+
+    <div class="card">
+      <div class="card-body" style="padding:0;">
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>الرقم المدني</th>
+                <th>الاسم</th>
+                <th>المؤهل المطلوب</th>
+                <th>التخصص</th>
+                <th>الحالة</th>
+                <th style="text-align:center;min-width:130px;">إجراءات</th>
+              </tr>
+            </thead>
+            <tbody id="requestsTbody">
+              <tr>
+                <td colspan="7" style="text-align:center;padding:30px;color:var(--n400);">جارٍ التحميل...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Decision Modal -->
+  <div id="decisionModal" class="modal-overlay" style="display:none;">
+    <div class="modal-box">
+      <div class="modal-header"><span id="modalTitle">مراجعة الطلب</span><button class="modal-close"
+          onclick="closeModal()">✕</button></div>
+      <div class="modal-body">
+        <div id="modalInfo"
+          style="background:var(--n50);padding:10px 12px;border-radius:var(--r-sm);margin-bottom:14px;font-size:13.5px;">
+        </div>
+        <!-- Attachments inside decision modal -->
+        <div class="section-title">📎 المرفقات</div>
+        <div id="modalAttachments"></div>
+        <div class="form-group" style="margin-top:16px;">
+          <label>القرار <span style="color:var(--danger)">*</span></label>
+          <select id="decisionSelect">
+            <option value="">— اختر القرار —</option>
+            <option value="accepted">✅ قبول الطلب</option>
+            <option value="rejected">❌ رفض الطلب</option>
+          </select>
+        </div>
+        <div class="form-group" style="margin-top:12px;">
+          <label>اسم المراجع (اسمك) <span style="color:var(--danger)">*</span></label>
+          <input type="text" id="reviewerName" placeholder="أدخل اسمك الكامل هنا...">
+        </div>
+        <div class="form-group" style="margin-top:12px;">
+          <label>التعليق / السبب <span style="color:var(--danger)">*</span></label>
+          <textarea id="decisionComment" rows="3" placeholder="أضف تعليقاً أو سبب القرار..."></textarea>
+        </div>
+        <div id="modalAlert"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-neutral" onclick="closeModal()">إلغاء</button>
+        <button class="btn btn-primary" id="saveDecisionBtn" onclick="saveDecision()">💾 حفظ القرار</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast-container"></div>
+
+  <script src="config.js"></script>
+  <script>
+    const adminRole = sessionStorage.getItem('admin_role');
+    const adminUser = sessionStorage.getItem('admin_user');
+    const adminName = sessionStorage.getItem('admin_name');
+    if (adminRole !== 'nursing_dir') window.location.href = 'login.html';
+    $('#adminNameDisplay').text('👤 ' + (adminName || adminUser));
+
+    let currentRowId = null;
+    let currentRow = null;
+
+    function logout() { sessionStorage.clear(); window.location.href = 'login.html'; }
+
+    function showToast(msg, type = 'success') {
+      const t = $(`<div class="toast toast-${type}">${msg}</div>`);
+      $('#toast-container').append(t);
+      setTimeout(() => t.fadeOut(400, () => t.remove()), 3500);
+    }
+
+    function badgeHtml(s) {
+      return { pending: '<span class="badge badge-pending">⏳ قيد المراجعة</span>', accepted: '<span class="badge badge-accepted">✅ مقبول</span>', rejected: '<span class="badge badge-rejected">❌ مرفوض</span>' }[s] || `<span class="badge">${s || '—'}</span>`;
+    }
+
+
+    // ── Attachment Viewer ──────────────────────────────────
+    function attachmentsHtml(r) {
+      const files = [
+        { key: 'attach_id_card', label: '🪪 البطاقة الشخصية' },
+        { key: 'attach_ielts', label: '📄 الإيلتس / شهادة اللغة' },
+        { key: 'attach_admission', label: '🎓 قبول الجامعة' },
+        { key: 'attach_recommendation', label: '📋 توصية الرئيس المباشر' },
+        { key: 'attach_pledge_letter', label: '📝 رسالة التعهد' },
+      ];
+      let html = '<div class="attach-grid">';
+      files.forEach(f => {
+        const url = r[f.key];
+        if (url) {
+          const isImg = /\.(jpg|jpeg|png|gif|webp)(\?|$)/i.test(url);
+          html += `<div class="attach-item">
+        <div class="attach-label">${f.label}</div>
+        ${isImg
+              ? `<a href="${url}" target="_blank"><img src="${url}" class="attach-thumb" alt="${f.label}"></a>`
+              : `<a href="${url}" target="_blank" class="btn btn-info btn-sm" style="margin-top:6px;">📥 فتح الملف</a>`
+            }
+        <a href="${url}" download class="btn btn-neutral btn-sm" style="margin-top:6px;">⬇️ تحميل</a>
+      </div>`;
+        } else {
+          html += `<div class="attach-item attach-missing">
+        <div class="attach-label">${f.label}</div>
+        <div style="font-size:12px;color:var(--n400);margin-top:6px;">لم يُرفق</div>
+      </div>`;
+        }
+      });
+      html += '</div>';
+      return html;
+    }
+
+
+    async function loadRequests() {
+      const st = $('#filterStatus').val();
+      const q = $('#searchInput').val().trim().toLowerCase();
+
+      let query = _supabase.from('study_nominations').select('*').eq('work_department', 'تمريض').eq('work_directorate', 'المديرية').order('created_at', { ascending: false });
+      if (st) query = query.eq('status', st);
+
+      const { data, error } = await query;
+      if (error) { showToast('خطأ: ' + error.message, 'danger'); return; }
+
+      const rows = data.filter(r => !q || (r.full_name || '').toLowerCase().includes(q) || (r.civil_id || '').includes(q));
+
+      $('#statTotal').text(data.length);
+      $('#statPending').text(data.filter(r => r.status === 'pending').length);
+      $('#statAccepted').text(data.filter(r => r.status === 'accepted').length);
+      $('#statRejected').text(data.filter(r => r.status === 'rejected').length);
+
+      if (!rows.length) {
+        $('#requestsTbody').html('<tr><td colspan="7" style="text-align:center;padding:28px;color:var(--n400);">لا توجد طلبات مطابقة.</td></tr>');
+        return;
+      }
+
+      let html = '';
+      rows.forEach((r, i) => {
+        const canDecide = r.status === 'pending';
+        html += `<tr>
+      <td>${i + 1}</td>
+      <td><b>${r.civil_id || '—'}</b></td>
+      <td>${r.full_name || '—'}</td>
+      <td style="color:var(--primary);font-weight:700;">${r.qualification_req || '—'}</td>
+      <td>${r.general_specialization || '—'}</td>
+      <td>${badgeHtml(r.status)}</td>
+      <td style="text-align:center;">
+        <div class="actions">
+          <button class="btn btn-info btn-sm" onclick="viewDetails(${r.id})">👁️ عرض</button>
+          ${canDecide
+            ? `<button class="btn btn-primary btn-sm" onclick="openDecision(${r.id})">📝 قرار</button>`
+            : `<button class="btn btn-neutral btn-sm" onclick="viewDecision(${r.id})">💬 القرار</button>`
+          }
+        </div>
+      </td>
+    </tr>`;
+      });
+      $('#requestsTbody').html(html);
+    }
+
+    async function getRow(id) {
+      const { data } = await _supabase.from('study_nominations').select('*').eq('id', id).single();
+      return data;
+    }
+
+    function drRow(l, v) {
+      return `<tr><td style="background:#f0f5fb;font-weight:700;padding:5px 10px;border:1px solid var(--n200);width:22%;white-space:nowrap;">${l}</td><td style="padding:5px 10px;border:1px solid var(--n200);">${v || '—'}</td></tr>`;
+    }
+
+    async function viewDetails(id) {
+      const r = await getRow(id);
+      if (!r) return;
+      const html = `
+    <div style="font-size:13.5px;">
+      <div class="section-title">البيانات الشخصية والوظيفية</div>
+      <table style="width:100%;border-collapse:collapse;">
+        ${drRow('الاسم', r.full_name)}${drRow('الرقم الوظيفي', r.job_number)}
+        ${drRow('المسمى', r.job_title)}${drRow('المديرية/المستشفى', r.work_directorate)}
+        ${drRow('الدائرة', r.work_department)}${drRow('الرقم المدني', r.civil_id)}
+        ${drRow('البريد', r.email)}${drRow('النقال', r.mobile_number)}
+      </table>
+      <div class="section-title" style="margin-top:12px;">الدراسة المطلوبة</div>
+      <table style="width:100%;border-collapse:collapse;">
+        ${drRow('المؤهل المطلوب', r.qualification_req)}${drRow('التخصص العام', r.general_specialization)}
+        ${drRow('التخصص الفرعي', r.sub_specialization)}${drRow('جهة الدراسة', r.study_entity_req)}
+        ${drRow('نوع القبول', r.admission_type)}${drRow('تاريخ البدء', r.start_date)}
+      </table>
+      <div class="section-title" style="margin-top:12px;">📎 المرفقات</div>
+      ${attachmentsHtml(r)}
+      <div class="section-title" style="margin-top:12px;">المهام الحالية</div>
+      <div class="comment-box">${r.tasks_performed || '—'}</div>
+      ${r.nursing_status ? `
+      <div class="section-title" style="margin-top:12px;">القرار</div>
+      ${badgeHtml(r.nursing_status)} <small style="color:var(--n500)"> — ${r.nursing_admin || ''}</small>
+      <div class="comment-box">${r.nursing_comment || '—'}</div>` : ''}
+    </div>`;
+
+      $('body').append(`<div class="modal-overlay" id="detailOverlay" style="align-items:flex-start;padding-top:16px;overflow-y:auto;">
+    <div class="modal-box" style="max-width:700px;width:100%;">
+      <div class="modal-header">📄 ${r.full_name || ''} <button class="modal-close" onclick="$('#detailOverlay').remove()">✕</button></div>
+      <div class="modal-body">${html}</div>
+      <div class="modal-footer"><button class="btn btn-neutral" onclick="$('#detailOverlay').remove()">إغلاق</button></div>
+    </div>
+  </div>`);
+    }
+
+    async function openDecision(id) {
+      currentRowId = id;
+      currentRow = await getRow(id);
+      $('#modalTitle').text(`قرار الطلب — ${currentRow.full_name || ''}`);
+      $('#modalInfo').html(`<b>الرقم المدني:</b> ${currentRow.civil_id || '—'} &nbsp;|&nbsp; <b>المؤهل:</b> ${currentRow.qualification_req || '—'}`);
+      $('#modalAttachments').html(attachmentsHtml(currentRow));
+      $('#decisionSelect').val('');
+      $('#decisionComment').val('');
+      $('#modalAlert').html('');
+      $('#decisionModal').show();
+    }
+
+    async function viewDecision(id) {
+      const r = await getRow(id);
+      if (!r) return;
+      const st = r.nursing_status;
+      showToast(`القرار: ${st === 'accepted' ? '✅ مقبول' : '❌ مرفوض'} — ${r.nursing_comment || ''}`, st === 'accepted' ? 'success' : 'danger');
+    }
+
+    function closeModal() { $('#decisionModal').hide(); currentRowId = null; currentRow = null; $('#reviewerName').val(''); }
+
+    async function saveDecision() {
+      const decision = $('#decisionSelect').val();
+      const reviewerName = $('#reviewerName').val().trim();
+      const comment = $('#decisionComment').val().trim();
+      $('#modalAlert').html('');
+      if (!decision) { $('#modalAlert').html('<div class="alert alert-danger">⚠️ اختر القرار.</div>'); return; }
+      if (!reviewerName) { $('#modalAlert').html('<div class="alert alert-danger">⚠️ أدخل اسمك.</div>'); return; }
+      if (!comment) { $('#modalAlert').html('<div class="alert alert-danger">⚠️ أضف تعليقاً.</div>'); return; }
+
+      const btn = $('#saveDecisionBtn');
+      btn.html('<span class="spinner"></span>').prop('disabled', true);
+
+      const { error } = await _supabase.from('study_nominations').update({
+        nursing_status: decision,
+        nursing_comment: comment,
+        nursing_admin: adminUser,
+        nursing_role: adminRole,
+        nursing_reviewer_name: reviewerName,
+        status: decision
+      }).eq('id', currentRowId);
+
+      if (error) {
+        $('#modalAlert').html(`<div class="alert alert-danger">❌ ${error.message}</div>`);
+        btn.html('💾 حفظ القرار').prop('disabled', false);
+        return;
+      }
+
+      showToast(decision === 'accepted' ? '✅ تم القبول' : '❌ تم الرفض', decision === 'accepted' ? 'success' : 'danger');
+      closeModal();
+      loadRequests();
+    }
+
+    loadRequests();
+  </script>
+</body>
+
+</html>
